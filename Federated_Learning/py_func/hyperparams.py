@@ -25,7 +25,6 @@ def get_hyperparams(quick=False, max_samples=None):
         'seq_len': 10,
         # Model (complex model SE-ResNet) / 模型（复杂模型 SE-ResNet）
         'num_classes': 5,
-        'teacher_channels': (371, 414, 442),
         'reduction': 16,
         # Federated learning / 联邦学习
         'n_clients': 30,
@@ -35,6 +34,7 @@ def get_hyperparams(quick=False, max_samples=None):
         'rounds': 100,
         'local_epochs': 2,
         'batch_size': 256,
+        'teacher_channels': (371, 414, 442),
         'lr': 0.0001,
         'optimizer': 'sgd',
         'samples_per_cluster': 1,

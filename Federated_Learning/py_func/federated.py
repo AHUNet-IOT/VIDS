@@ -88,7 +88,8 @@ def evaluate_loss(model, x, y, device, batch_size=512, class_weights=None):
 
 def train_local(model, x, y, epochs, batch_size, lr, device, optimizer='adam',
                 class_weights=None, use_focal_loss=False, focal_gamma=2.0):
-    """Train the model for several epochs on the client's local data and return (updated model, average loss). / 在客户端本地数据上训练模型若干轮，返回 (更新后的模型, 平均损失)。"""
+    """Train the model for several epochs on the client's local data and return (updated model, average loss). 
+    / 在客户端本地数据上训练模型若干轮，返回 (更新后的模型, 平均损失)。"""
     if optimizer == 'adam':
         opt = torch.optim.Adam(model.parameters(), lr=lr)
     else:
@@ -241,9 +242,10 @@ def run_federated_training(
         use_focal_loss=False, focal_gamma=2.0,
         public_eval_size=20000, loss_eval_size=50000, verbose=True,
         use_dp=False, dp_epsilon=8.0, dp_delta=1e-5,
-        dp_retention_ratio=0.6, dp_clip_threshold=4.0,
+        dp_retention_ratio=0.6, dp_clip_threshold=1.5,
         dp_gamma1=0.9, dp_gamma2=0.999):
-    """Run federated learning and return (trained global complex model, per-round loss list). / 运行联邦学习，返回 (训练好的全局复杂模型, 每轮损失列表)。"""
+    """Run federated learning and return (trained global complex model, per-round loss list).
+     / 运行联邦学习，返回 (训练好的全局复杂模型, 每轮损失列表)。"""
     n_clients = len(client_indices)
     global_model = load_model(num_classes=num_classes, channels=channels,
                               reduction=reduction, seq_len=seq_len).to(device)

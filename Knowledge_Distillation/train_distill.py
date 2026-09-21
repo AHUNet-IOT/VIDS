@@ -30,8 +30,9 @@ BATCH = 256
 LR = 0.01
 OPTIMIZER = 'sgd'
 MOMENTUM = 0.9
+LAM_CE = 0.8
 LAM_HINT = 0.1
-LAM_KL = 0.02
+LAM_KL = 0.1
 T_START = 1.0
 T_END = 20.0
 TAU_INIT = -2.0
@@ -68,14 +69,15 @@ def teacher_out(teacher, x):
             np.concatenate(H1, 0), np.concatenate(H2, 0), np.concatenate(H3, 0))
 
 
-def train(x, y, hints, zt, *, seed=0, optimizer=OPTIMIZER, lr=LR, momentum=MOMENTUM):
+def train(x, y, hints, zt, *, seed=0, optimizer=OPTIMIZER, lr=LR, momentum=MOMENTUM,
+          lam_ce=LAM_CE, lam_hint=LAM_HINT, lam_kl=LAM_KL):
     """Train a single student model (one seed).
 
-    Loss = cross-entropy + λ_hint·hint loss + λ_kl·soft-label KL;
+    Loss = λ_ce·cross-entropy + λ_hint·hint loss + λ_kl·soft-label KL;
     the temperature T is curriculum-scheduled from the learnable parameter tau via a gradient reversal layer.
 
     训练单个学生模型（一个种子）。
-    损失 = 交叉熵 + λ_hint·Hint 损失 + λ_kl·软标签 KL；
+    损失 = λ_ce·交叉熵 + λ_hint·Hint 损失 + λ_kl·软标签 KL；
     温度 T 由可学习参数 tau 经梯度反转层做课程化调度。
     """
     torch.manual_seed(seed)
@@ -105,12 +107,12 @@ def train(x, y, hints, zt, *, seed=0, optimizer=OPTIMIZER, lr=LR, momentum=MOMEN
             xb = xt_t[idx].unsqueeze(1); yb = yt_t[idx]
             z, h_s = student(xb)
             T = T_START + T_END * torch.sigmoid(GradientReversalFunction.apply(tau, decay))
-            loss = F.cross_entropy(z, yb)
+            loss = lam_ce * F.cross_entropy(z, yb)
             loss_hint = (F.mse_loss(h_s[0].mean(dim=2), tg1_t[idx])
                          + F.mse_loss(h_s[1].mean(dim=2), tg2_t[idx])
                          + F.mse_loss(h_s[2].mean(dim=2), tg3_t[idx]))
-            loss = loss + LAM_HINT * loss_hint
-            loss = loss + LAM_KL * soft_ce(z, zt_t[idx], T)
+            loss = loss + lam_hint * loss_hint
+            loss = loss + lam_kl * soft_ce(z, zt_t[idx], T)
             opt.zero_grad(); loss.backward(); opt.step()
             ep_loss += loss.item()
         if ep % LOG_EPOCHS == 0 or ep == EPOCHS:
@@ -161,7 +163,12 @@ def main():
     parser.add_argument('--lr', type=float, default=LR, help='学习率')
     parser.add_argument('--momentum', type=float, default=MOMENTUM,
                         help='SGD 动量（仅 sgd 生效）')
+    parser.add_argument('--loss-ratio', type=str, default=f'{LAM_CE}:{LAM_HINT}:{LAM_KL}',
+                        help='损失权重比例 λ_ce:λ_hint:λ_kl')
     args = parser.parse_args()
+
+    lam_ce, lam_hint, lam_kl = [float(v) for v in args.loss_ratio.split(':')]
+    print(f"损失权重比例 λ_ce:λ_hint:λ_kl = {lam_ce}:{lam_hint}:{lam_kl}")
 
     torch.manual_seed(0)
     np.random.seed(0)
@@ -205,7 +212,8 @@ def main():
     for seed in range(N_SEEDS):
         t0 = time.time()
         m = train(Xa, y, hints, Zt, seed=seed,
-                  optimizer=args.optimizer, lr=args.lr, momentum=args.momentum)
+                  optimizer=args.optimizer, lr=args.lr, momentum=args.momentum,
+                  lam_ce=lam_ce, lam_hint=lam_hint, lam_kl=lam_kl)
         ckpt = OUT_DIR / f'student_s4_ens_{seed}.pt'
         torch.save(m.state_dict(), ckpt)
         models.append(m)
