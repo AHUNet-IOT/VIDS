@@ -54,6 +54,7 @@ pip install scipy
 ## 2. Data Description
 
 > Note: To make it convenient for readers to run the code directly, this repository uploads a very small subset of the Car-Hacking dataset (not the full dataset, due to upload size limits). Because the code is run on an incomplete dataset, the experimental results obtained may have some deviation from those reported in the paper.
+> To obtain results similar to those in the paper, users need to download the full dataset and perform data preprocessing and training.
 
 Each sample consists of a feature vector plus a class label. The number of features (sequence length) and the number of classes are configured via `seq_len` and `num_classes` in `Federated_Learning/py_func/hyperparams.py`.
 
