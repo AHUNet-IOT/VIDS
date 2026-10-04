@@ -303,6 +303,6 @@ Modify `dp_epsilon` and `dp_delta` in `Federated_Learning/py_func/hyperparams.py
 
 ## Notes
 
-Due to GitHub's file-size limits, this repository only uploads part of the dataset to make it easy for readers to run the code directly. In addition, since deep learning model training is affected by hardware and data, the final results may differ slightly from the results reported in the paper (which used the complete dataset).
+Due to GitHub's file-size limits, this repository only uploads part of the dataset to make it easy for readers to run the code directly. In addition, since deep learning model training is affected by hardware and data, the final results may differ slightly from the results reported in the paper (which used the complete dataset). To obtain results similar to those in the paper, users need to download the full dataset and perform data preprocessing and training.
 
 Moreover, distillation time and loss variation are closely tied to the size of the dataset, so it is normal to see different distillation durations and loss curves when using datasets of different scales.
