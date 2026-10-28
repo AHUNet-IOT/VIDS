@@ -16,8 +16,6 @@ This project applies to various in-vehicle / V2X intrusion detection datasets (e
 
 > Note: Raw datasets usually contain timestamps, IDs, hexadecimal fields, missing values, class imbalance, etc. You must first perform data cleaning (deduplication, missing-value handling, class merging, normalization) and feature selection, then convert them into this project's `.npz` format (`x` is the feature matrix, `y` is the labels).
 
-> Note: This repository does **not** include any dataset files. Please download and preprocess the dataset yourself before running the code.
-
 This project implements a federated learning pipeline for in-vehicle intrusion detection, and optionally integrates differential privacy (DP) during the federated training stage.
 
 Overall workflow:
