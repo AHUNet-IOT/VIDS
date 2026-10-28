@@ -1,4 +1,4 @@
-# Two-Stage In-Vehicle Intrusion Detection System — Code Documentation
+# VIDS Code Documentation
 
 English | [中文](README.zh-CN.md)
 
@@ -16,13 +16,14 @@ This project applies to various in-vehicle / V2X intrusion detection datasets (e
 
 > Note: Raw datasets usually contain timestamps, IDs, hexadecimal fields, missing values, class imbalance, etc. You must first perform data cleaning (deduplication, missing-value handling, class merging, normalization) and feature selection, then convert them into this project's `.npz` format (`x` is the feature matrix, `y` is the labels).
 
-This project implements a complete "federated learning → knowledge distillation" pipeline, and optionally integrates differential privacy (DP) during the federated training stage.
+> Note: This repository does **not** include any dataset files. Please download and preprocess the dataset yourself before running the code.
+
+This project implements a federated learning pipeline for in-vehicle intrusion detection, and optionally integrates differential privacy (DP) during the federated training stage.
 
 Overall workflow:
 
-1. **Federated learning**: Multiple clients (simulating several RSUs / roadside units) collaboratively train a larger teacher model (SE-ResNet).
-2. **Knowledge distillation**: Distill the trained teacher model into a lightweight student model (LightCNN), greatly reducing model size and computation while maintaining performance.
-3. **Differential privacy (optional)**: Add noise to client-uploaded gradients during federated training to satisfy a strict `(ε, δ)-DP` upper bound.
+1. **Federated learning**: Multiple clients (simulating several RSUs / roadside units) collaboratively train a teacher model (SE-ResNet).
+2. **Differential privacy (optional)**: Add noise to client-uploaded gradients during federated training to satisfy a strict `(ε, δ)-DP` upper bound.
 
 ---
 
@@ -53,8 +54,7 @@ pip install scipy
 
 ## 2. Data Description
 
-> Note: To make it convenient for readers to run the code directly, this repository uploads a very small subset of the Car-Hacking dataset (not the full dataset, due to upload size limits). Because the code is run on an incomplete dataset, the experimental results obtained may have some deviation from those reported in the paper.
-> To obtain results similar to those in the paper, users need to download the full dataset and perform data preprocessing and training.
+> Note: This repository does not include any dataset files. Please download the full dataset yourself, perform data preprocessing, and place the converted `.npz` files in the expected locations before training.
 
 Each sample consists of a feature vector plus a class label. The number of features (sequence length) and the number of classes are configured via `seq_len` and `num_classes` in `Federated_Learning/py_func/hyperparams.py`.
 
@@ -70,14 +70,12 @@ Default paths of each `.npz` file (overridable via command line):
 - Federated training set: `Federated_Learning/data_train.npz`
 - Federated test set: `Federated_Learning/data_test.npz`
 - Federated public set: `Federated_Learning/data_public.npz`
-- Distillation training set: `Knowledge_Distillation/data_public_kd.npz`
-- Distillation test set: `Knowledge_Distillation/data_kd_test.npz`
 
 ---
 
 ## 3. Quick Start
 
-Run in the following order to execute the full pipeline (without DP). Two run modes are provided:
+Run the federated learning stage to train the teacher model (without DP). Two run modes are provided:
 
 ### Mode 1: Full Run
 
@@ -86,11 +84,8 @@ Uses all training samples, with 100 federated rounds by default:
 ```bash
 cd <project root>
 
-# Step 1: Federated learning to train the teacher model (no DP, full 100 rounds)
+# Federated learning to train the teacher model (no DP, full 100 rounds)
 python3 Federated_Learning/train_federated.py
-
-# Step 2: Knowledge distillation to obtain the student model
-python3 Knowledge_Distillation/train_distill.py
 ```
 
 ### Mode 2: Quick Run (without DP)
@@ -99,9 +94,6 @@ The federated learning stage uses only about 100,000 training samples over 10 ro
 
 ```bash
 python3 Federated_Learning/train_federated.py --max-samples 100000 --rounds 10
-
-# Then run knowledge distillation
-python3 Knowledge_Distillation/train_distill.py
 ```
 
 ---
@@ -114,7 +106,7 @@ Entry point: `Federated_Learning/train_federated.py`
 python3 Federated_Learning/train_federated.py [options]
 ```
 
-### 5.1 Command-Line Arguments
+### 4.1 Command-Line Arguments
 
 | Argument | Type | Default | Description |
 |---|---|---|---|
@@ -133,7 +125,7 @@ python3 Federated_Learning/train_federated.py [options]
 | `--beta` | float | None | Gain-weighted aggregation parameter (None = 0.5) |
 | `--use-dp` | flag | False | Enable differential privacy (disabled by default) |
 
-### 5.2 Common Examples
+### 4.2 Common Examples
 
 ```bash
 # Full training (no DP, 30 clients / 9 clusters / 100 rounds / SGD)
@@ -155,7 +147,7 @@ python3 Federated_Learning/train_federated.py --use-dp
 python3 Federated_Learning/train_federated.py --quick --use-dp --rounds 10
 ```
 
-### 5.3 Training Process
+### 4.3 Training Process
 
 1. Load the training / test / public sets and partition them among the clients via a Dirichlet distribution.
 2. In round 0, perform hierarchical clustering on the clients (based on the cosine distance of representative gradients).
@@ -163,7 +155,7 @@ python3 Federated_Learning/train_federated.py --quick --use-dp --rounds 10
 4. Quality-aware aggregation produces the new global model (teacher model).
 5. After training, evaluate on the test set, print overall metrics and the classification report, and save the teacher model.
 
-### 5.4 Output Artifacts
+### 4.4 Output Artifacts
 
 | File | Description |
 |---|---|
@@ -172,51 +164,7 @@ python3 Federated_Learning/train_federated.py --quick --use-dp --rounds 10
 
 ---
 
-## 5. Knowledge Distillation (Student Model)
-
-Entry point: `Knowledge_Distillation/train_distill.py`
-
-Distillation uses `checkpoints/teacher_seresnet.pt` as the teacher model (federated training must be completed first).
-
-```bash
-python3 Knowledge_Distillation/train_distill.py [options]
-```
-
-### 6.1 Command-Line Arguments
-
-| Argument | Type | Default | Description |
-|---|---|---|---|
-| `--optimizer` | str | `sgd` | Distillation optimizer `sgd` / `adam` |
-| `--lr` | float | 0.01 | Learning rate |
-| `--momentum` | float | 0.9 | SGD momentum (only effective for `sgd`) |
-
-### 6.2 Common Examples
-
-```bash
-# Default: SGD(lr=0.01, momentum=0.9)
-python3 Knowledge_Distillation/train_distill.py
-
-# Switch back to Adam (recommended with a smaller learning rate)
-python3 Knowledge_Distillation/train_distill.py --optimizer adam --lr 0.001
-```
-
-### 6.3 Distillation Highlights
-
-- The student model is `LightCNN(width=4)` with about 3.6K parameters, far fewer than the teacher model (~3.3 million).
-- Distillation loss = cross-entropy + hint loss + soft-label KL.
-- The temperature is scheduled via a learnable parameter `tau` through a gradient reversal layer (curriculum scheduling).
-- By default it trains **10 random seeds × 150 epochs** and ensembles the 10 models via soft voting / weight averaging.
-
-### 6.4 Output Artifacts
-
-| File | Description |
-|---|---|
-| `checkpoints/student_s4_ens_{0..9}.pt` | 10 student models with different seeds |
-| `checkpoints/student_s4_ensemble.pt` | Weight-averaged ensemble student model |
-
----
-
-## 6. Differential Privacy (Optional)
+## 5. Differential Privacy (Optional)
 
 Enable it during federated training via `--use-dp`. When enabled:
 
@@ -225,7 +173,7 @@ Enable it during federated training via `--use-dp`. When enabled:
 - Default privacy budget: `ε = 8.0`, `δ = 1e-5`.
 - When DP is enabled, the optimizer is automatically bound to `adam` (more stable for noisy gradients).
 
-### 7.1 DP-Related Hyperparameters
+### 5.1 DP-Related Hyperparameters
 
 Centralized in `Federated_Learning/py_func/hyperparams.py`; modify as needed:
 
@@ -239,7 +187,7 @@ Centralized in `Federated_Learning/py_func/hyperparams.py`; modify as needed:
 | `dp_gamma1` | 0.9 | First-moment decay factor |
 | `dp_gamma2` | 0.999 | Second-moment decay factor |
 
-### 7.2 Examples
+### 5.2 Examples
 
 ```bash
 # DP quick version: 50k samples / 10 rounds / 5 clients
@@ -253,7 +201,7 @@ python3 Federated_Learning/train_federated.py --use-dp
 
 ---
 
-## 7. Key Hyperparameters
+## 6. Key Hyperparameters
 
 Default hyperparameters are centralized in `get_hyperparams()` in `Federated_Learning/py_func/hyperparams.py`.
 
@@ -281,21 +229,17 @@ The `--quick` mode automatically overrides: `max_samples=50000`, `n_clients=5`, 
 
 ---
 
-## 8. FAQ
+## 7. FAQ
 
 **Q1: Federated training reports that `.npz` files cannot be found?**
 
 Make sure `data_train.npz`, `data_test.npz`, `data_public.npz` exist in the `Federated_Learning/` directory, or specify the correct paths via `--train-npz` / `--test-npz` / `--public-npz`.
 
-**Q2: Knowledge distillation reports that the teacher model cannot be found?**
-
-Distillation depends on `checkpoints/teacher_seresnet.pt`, so federated training must be completed first. If a DP-trained teacher model is used, specify `checkpoints/teacher_seresnet_dp.pt` manually.
-
-**Q3: Why is DP training so slow?**
+**Q2: Why is DP training so slow?**
 
 DP requires computing the gradient for each individual sample within each batch (per-sample clipping + noise), which is far more expensive than ordinary backpropagation and scales with the total sample count, rounds, and local epochs.
 
-**Q4: How do I modify the DP privacy budget?**
+**Q3: How do I modify the DP privacy budget?**
 
 Modify `dp_epsilon` and `dp_delta` in `Federated_Learning/py_func/hyperparams.py`; the noise multiplier will be automatically back-solved.
 
@@ -303,6 +247,4 @@ Modify `dp_epsilon` and `dp_delta` in `Federated_Learning/py_func/hyperparams.py
 
 ## Notes
 
-Due to GitHub's file-size limits, this repository only uploads part of the dataset to make it easy for readers to run the code directly. In addition, since deep learning model training is affected by hardware and data, the final results may differ slightly from the results reported in the paper (which used the complete dataset). To obtain results similar to those in the paper, users need to download the full dataset and perform data preprocessing and training.
-
-Moreover, distillation time and loss variation are closely tied to the size of the dataset, so it is normal to see different distillation durations and loss curves when using datasets of different scales.
+Due to GitHub's file-size limits, this repository does not include any dataset files. Please download the full dataset yourself and perform data preprocessing before training. In addition, since deep learning model training is affected by hardware and data, the final results may differ slightly from the results reported in the paper (which used the complete dataset).
